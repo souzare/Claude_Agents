@@ -1,0 +1,120 @@
+mcs.metadata:
+  componentName: Encaminhar
+  description: |-
+    Este tópico do sistema é disparado quando o usuário indica que quer falar com um representante.
+    Você pode configurar como o agente lidará com cenários de entrega humana nas configurações do agente.
+    Se o seu agente não fizer escalonamentos, esse tópico deverá ser desabilitado.
+kind: AdaptiveDialog
+startBehavior: CancelOtherTopics
+beginDialog:
+  kind: OnEscalate
+  id: main
+  intent:
+    displayName: Encaminhar
+    includeInOnSelectIntent: false
+    triggerQueries:
+      - Falar com agente
+      - Conversar com agente
+      - Conversar com um agente
+      - Posso falar com outra pessoa
+      - Posso falar com outra pessoa?
+      - Posso conversar com outra pessoa
+      - Posso conversar com outra pessoa?
+      - Posso ter suporte de um agente real
+      - Posso ter suporte de um agente real?
+      - Você pode me transferir para falar com uma pessoa
+      - Você pode me transferir para falar com uma pessoa?
+      - Você pode me informar um número ou ligar para mim
+      - Você pode me informar um número ou me ligar
+      - Você pode me informar um número ou ligar para mim?
+      - Você pode me informar um número ou me ligar?
+      - Um representante pode ligar para mim
+      - Um representante pode me ligar
+      - Um representante pode ligar para mim?
+      - Um representante pode me ligar?
+      - Posso agendar uma chamada
+      - Posso agendar uma chamada?
+      - Posso agendar uma ligação
+      - Posso agendar uma ligação?
+      - Posso falar com um representante
+      - Posso falar com um representante?
+      - Posso conversar com um representante
+      - Posso conversar com um representante?
+      - Posso falar com uma pessoa
+      - Posso falar com uma pessoa?
+      - Posso conversar com uma pessoa
+      - Posso conversar com uma pessoa?
+      - Posso falar com um assistente humano
+      - Posso falar com um assistente humano?
+      - Posso conversar com assistente humano
+      - Posso conversar com um assistente humano?
+      - Alguém pode ligar para mim
+      - Alguém pode me ligar
+      - Alguém pode ligar para mim?
+      - Alguém pode me ligar?
+      - Conversar com uma pessoa
+      - Conversar com alguém
+      - Falar com uma pessoa
+      - Falar com alguém
+      - Conversar com um humano
+      - Falar com um humano
+      - Conversar com um representante
+      - Falar com um representante
+      - Falar com um agente
+      - Conversar com alguém, por favor
+      - Bater-papo com alguém
+      - Conectar-me com um agente humano
+      - Conectar-me com uma pessoa
+      - Conecte-me com uma pessoa
+      - Alguém pode me contatar por telefone
+      - Alguém pode me contatar por telefone?
+      - Agente do cliente
+      - Agente de cliente
+      - Representante do cliente
+      - Representante de cliente
+      - Serviço de atendimento ao consumidor
+      - Atendimento ao cliente
+      - SAC
+      - Preciso que um gerente me contate
+      - Preciso que um gerente entre em contato comigo
+      - Preciso do serviço de atendimento ao consumidor
+      - Preciso do SAC
+      - Preciso de ajuda de uma pessoa
+      - Preciso falar com um agente humano
+      - Preciso falar com um especialista
+      - Quero falar com o serviço de atendimento ao consumidor
+      - Quero falar com o SAC
+      - Quero continuar com o suporte ao vivo
+      - Quero falar com um consultor
+      - Quero falar com um técnico
+      - Gostaria de falar com um representante
+      - Retorno de chamada
+      - Ligar de volta
+      - Ligue-me de volta
+      - Gostaria de falar com um técnico
+      - Falar com membro do suporte técnico
+      - Ligar para o serviço de atendimento ao consumidor
+      - Ligar para o atendimento ao consumidor
+      - Ligar para o SAC
+      - Chamar o serviço de atendimento ao consumidor
+      - Chamar o atendimento ao consumidor
+      - Chamar o SAC
+      - Ligue para mim, por favor
+      - Me ligue, por favor
+      - Liguem para mim, por favor
+      - Me liguem, por favor
+      - Ligar para o suporte
+      - Ligar para o suporte técnico
+      - Um agente pode ligar para mim?
+      - Um agente pode me ligar?
+      - Posso ligar
+      - Posso ligar?
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_s39DCt
+      conversationOutcome: Escalated
+      activity: |-
+        O escalonamento para um representante não está configurado para este agente no momento. No entanto, é nesse momento que o agente pode fornecer informações sobre como entrar em contato com alguém de outra forma.
+
+        Posso ajudar em algo mais?

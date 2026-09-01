@@ -1,0 +1,15 @@
+# Name: Último chamado — número
+# Número do último chamado aberto pelo usuário nesta conversa.
+name: UltimoChamadoNumero
+aIVisibility: UseInAIContext
+scope: Conversation
+description: >-
+  Número do último chamado aberto pelo usuário nesta conversa, no formato
+  PREFIXO-DDMMAAAA-NNNN (por exemplo HW-01092026-4821). Preenchido pelo tópico
+  "Abrir chamado de TI" e lido pelo tópico "Consultar chamado" para oferecer o
+  número já conhecido em vez de perguntar do zero. Fica em branco enquanto o
+  usuário não abrir nenhum chamado nesta conversa.
+schemaName: new_AgentedeSuportedeTI.globalvariable.UltimoChamadoNumero
+kind: GlobalVariableComponent
+# Sem defaultValue de propósito: a variável precisa começar EM BRANCO para que
+# o teste =IsBlank(Global.UltimoChamadoNumero) no tópico de consulta funcione.

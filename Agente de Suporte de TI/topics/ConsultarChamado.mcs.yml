@@ -1,0 +1,402 @@
+mcs.metadata:
+  componentName: Consultar chamado
+  description: |-
+    Consulta o status de um chamado de TI a partir do número informado pelo usuário
+    (formato PREFIXO-DDMMAAAA-NNNN). Se o usuário já abriu um chamado nesta mesma
+    conversa, oferece esse número em vez de perguntar do zero. Devolve o status do
+    chamado (Aberto, Fechado, Aguardando Retorno do Usuário ou Cancelado), a
+    categoria e a orientação de próximo passo correspondente.
+kind: AdaptiveDialog
+modelDisplayName: Consultar chamado
+modelDescription: |-
+  Consulta a situação de um chamado de TI já existente e informa ao usuário o status
+  atual (Aberto, Fechado, Aguardando Retorno do Usuário ou Cancelado), a categoria do
+  chamado e o que ele precisa fazer em seguida. Acione este tópico quando o usuário
+  quiser saber o andamento, a situação ou o status de um chamado, ticket ou solicitação
+  de suporte que já foi aberto, mesmo que ele não tenha o número em mãos — o tópico
+  cuida de pedir ou de reaproveitar o número do chamado aberto nesta conversa.
+  NÃO acione este tópico quando o usuário quiser abrir, registrar ou criar um chamado
+  novo: nesse caso use o tópico "Abrir chamado de TI".
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Consultar chamado
+    triggerQueries:
+      - Consultar chamado
+      - Consultar ticket
+      - Status do chamado
+      - Qual o status do meu chamado
+      - Acompanhar chamado
+      - Meu chamado
+      - Andamento do chamado
+      - Como está meu chamado
+      - Verificar chamado
+      - Situação do chamado
+      - Já resolveram meu chamado
+      - Notícias do meu chamado
+
+  actions:
+    # ------------------------------------------------------------------
+    # 0) Contexto da conversa.
+    #    Global.UltimoChamadoNumero é preenchido pelo tópico "Abrir chamado de TI".
+    #    Fica em branco se o usuário ainda não abriu nenhum chamado nesta conversa.
+    #    Normalizamos aqui (Trim + Upper) para comparar com segurança mais adiante.
+    # ------------------------------------------------------------------
+    - kind: SetVariable
+      id: setVariable_ultimoConhecido_Hs4tQm
+      variable: init:Topic.UltimoConhecido
+      value: =Upper(Trim(Coalesce(Global.UltimoChamadoNumero, "")))
+
+    # Número que será efetivamente consultado. Começa em branco.
+    - kind: SetVariable
+      id: setVariable_numeroConsultaInicial_Vd7kRb
+      variable: init:Topic.NumeroConsulta
+      value: '=""'
+
+    # ------------------------------------------------------------------
+    # 1) Se o usuário abriu um chamado nesta mesma conversa, oferecemos esse
+    #    número em vez de perguntar do zero.
+    # ------------------------------------------------------------------
+    - kind: ConditionGroup
+      id: conditionGroup_temChamadoNaConversa_Qk3wNf
+      conditions:
+        - id: conditionItem_temChamado_Lp8xVe
+          condition: =!IsBlank(Topic.UltimoConhecido)
+          actions:
+            - kind: Question
+              id: question_usarUltimo_Rt6yBc
+              alwaysPrompt: true
+              interruptionPolicy:
+                allowInterruption: false
+
+              variable: init:Topic.UsarUltimo
+              prompt: Nesta conversa você abriu o chamado **{Topic.UltimoConhecido}**.<br /><br />Quer consultar esse mesmo chamado?
+              entity: BooleanPrebuiltEntity
+
+            - kind: ConditionGroup
+              id: conditionGroup_usarUltimo_Wm2jHt
+              conditions:
+                - id: conditionItem_usarSim_Yc5nDq
+                  condition: =Topic.UsarUltimo = true
+                  actions:
+                    - kind: SetVariable
+                      id: setVariable_reaproveitaUltimo_Ax9pLg
+                      variable: Topic.NumeroConsulta
+                      value: =Topic.UltimoConhecido
+
+    # ------------------------------------------------------------------
+    # 2) Se ainda não temos um número (não há chamado nesta conversa, ou o
+    #    usuário quer consultar outro), perguntamos e validamos o formato.
+    #
+    #    O formato gerado pelo tópico "Abrir chamado de TI" é
+    #    PREFIXO-DDMMAAAA-NNNN, com PREFIXO em HW, SW, NET ou TI
+    #    (por exemplo HW-01092026-4821).
+    #
+    #    Observação sobre a expressão regular: usamos "\d" repetido em vez do
+    #    quantificador com chaves ("\d{8}") de propósito — chaves dentro de texto
+    #    podem ser confundidas com interpolação de variáveis no Copilot Studio.
+    #    A entrada é normalizada com Upper(Trim(...)) ANTES de ser validada, então
+    #    "  hw-01092026-4821 " é aceito normalmente.
+    # ------------------------------------------------------------------
+    - kind: ConditionGroup
+      id: conditionGroup_precisaPerguntar_Ze4hMv
+      conditions:
+        - id: conditionItem_perguntarNumero_Bn7sKw
+          condition: =IsBlank(Topic.NumeroConsulta)
+          actions:
+            - kind: Question
+              id: question_numeroChamado_Jf3qTx
+              alwaysPrompt: true
+              interruptionPolicy:
+                allowInterruption: false
+
+              variable: init:Topic.NumeroInformado
+              prompt: Qual é o número do chamado que você quer consultar?<br /><br />Ele tem o formato **PREFIXO-DDMMAAAA-NNNN**, por exemplo HW-01092026-4821. Você recebeu esse número quando o chamado foi aberto.
+              entity: StringPrebuiltEntity
+              validation: '=IsMatch(Upper(Trim(Topic.NumeroInformado)), "^(HW|SW|NET|TI)-\d\d\d\d\d\d\d\d-\d\d\d\d$")'
+              invalidPrompt: Esse número não está no formato esperado.<br /><br />O número do chamado começa com **HW**, **SW**, **NET** ou **TI**, seguido da data com 8 dígitos e de 4 números — por exemplo **HW-01092026-4821**. Pode conferir e digitar novamente?
+
+            # Normaliza a entrada antes de usar no restante do fluxo.
+            - kind: SetVariable
+              id: setVariable_normalizaNumero_Ck5rTn
+              variable: Topic.NumeroConsulta
+              value: =Upper(Trim(Coalesce(Topic.NumeroInformado, "")))
+
+    # ------------------------------------------------------------------
+    # 3) Rede de segurança: se o usuário esgotou as tentativas sem informar um
+    #    número válido, encerramos com cordialidade em vez de consultar lixo.
+    # ------------------------------------------------------------------
+    - kind: ConditionGroup
+      id: conditionGroup_numeroInvalido_Pt8gLd
+      conditions:
+        - id: conditionItem_invalido_Nq4vBz
+          condition: '=Not(IsMatch(Topic.NumeroConsulta, "^(HW|SW|NET|TI)-\d\d\d\d\d\d\d\d-\d\d\d\d$"))'
+          actions:
+            - kind: SendActivity
+              id: sendMessage_numeroInvalido_Fw6yHs
+              activity:
+                text:
+                  - 'Não consegui identificar um número de chamado válido.<br /><br />Sem problema: procure o número no e-mail de abertura do chamado e me chame de novo dizendo "consultar chamado". Se preferir, também posso abrir um chamado novo para você.'
+                speak:
+                  - Não consegui identificar um número de chamado válido. Procure o número no e-mail de abertura do chamado e me chame de novo. Se preferir, também posso abrir um chamado novo.
+
+            - kind: EndDialog
+              id: endDialog_numeroInvalido_Rb2mXq
+
+    # ------------------------------------------------------------------
+    # 4) Dados derivados do próprio número do chamado.
+    #    Prefixo = tudo antes do primeiro hífen; sufixo = os 4 últimos dígitos.
+    # ------------------------------------------------------------------
+    - kind: SetVariable
+      id: setVariable_prefixoConsulta_Uv7kDm
+      variable: init:Topic.PrefixoConsulta
+      value: =Left(Topic.NumeroConsulta, Find("-", Topic.NumeroConsulta) - 1)
+
+    - kind: SetVariable
+      id: setVariable_categoriaConsulta_Gz3nWt
+      variable: init:Topic.CategoriaConsulta
+      value: =Switch(Topic.PrefixoConsulta, "HW", "Hardware", "SW", "Software", "NET", "Rede", "Geral")
+
+    - kind: SetVariable
+      id: setVariable_sufixoConsulta_Ly9pCf
+      variable: init:Topic.SufixoConsulta
+      value: =Right(Topic.NumeroConsulta, 4)
+
+    # ==================================================================
+    # PONTO DE INTEGRAÇÃO COM O ITSM REAL
+    # ------------------------------------------------------------------
+    # Hoje NÃO existe conector/backend configurado neste agente
+    # (GenerativeActionsEnabled = false e a pasta actions/ está vazia),
+    # exatamente como no tópico "Abrir chamado de TI", que gera o número do
+    # chamado LOCALMENTE com Power Fx. Por isso o status abaixo também é
+    # SIMULADO de forma determinística a partir do sufixo numérico do próprio
+    # número do chamado — o mesmo número consultado devolve sempre o mesmo
+    # status, o que mantém a conversa coerente durante os testes.
+    #
+    # QUANDO O CONECTOR ESTIVER DISPONÍVEL, substitua os DOIS nós SetVariable
+    # abaixo (setVariable_statusSimulado_Ho4tKw e setVariable_orientacao_Xs5bJn)
+    # por uma consulta real ao sistema de ITSM:
+    #
+    #   1. Crie a ação com a skill /copilot-studio:add-action
+    #      (ServiceNow "Get Record" / "List Records", Dataverse "Get a row by ID"
+    #       ou um HTTP request GET para a API do ITSM).
+    #   2. Registre a conexão em connectionreferences.mcs.yml.
+    #   3. Chame a ação aqui com um nó BeginDialog, passando como entrada
+    #      Topic.NumeroConsulta.
+    #   4. Grave a saída da ação (o status real) em Topic.StatusChamado e, se a
+    #      API devolver, também a categoria em Topic.CategoriaConsulta e os
+    #      demais dados do chamado. O restante do fluxo abaixo continua igual,
+    #      desde que o status real seja mapeado para um destes quatro valores:
+    #      "Aberto", "Fechado", "Aguardando Retorno do Usuário" ou "Cancelado".
+    #   5. Trate também o caso "chamado não encontrado" no ITSM (hoje inexistente,
+    #      porque qualquer número no formato correto devolve um status simulado).
+    #
+    #   Exemplo do nó que substituirá os SetVariable:
+    #     - kind: BeginDialog
+    #       id: beginDialog_consultarChamadoItsm
+    #       dialog: new_AgentedeSuportedeTI.action.ConsultarChamadoITSM
+    #       input:
+    #         binding:
+    #           numeroChamado: =Topic.NumeroConsulta
+    #       output:
+    #         binding:
+    #           Topic.StatusChamado: status
+    #           Topic.CategoriaConsulta: categoria
+    # ==================================================================
+
+    # Status simulado. Se o número consultado for o chamado que o usuário acabou
+    # de abrir nesta conversa, o status é obrigatoriamente "Aberto" — assim a
+    # resposta nunca contradiz o que o agente acabou de dizer ao abrir o chamado.
+    # Para os demais números, Mod(sufixo, 4) distribui os quatro status possíveis.
+    - kind: SetVariable
+      id: setVariable_statusSimulado_Ho4tKw
+      variable: init:Topic.StatusChamado
+      value: =If(Topic.NumeroConsulta = Topic.UltimoConhecido, "Aberto", Switch(Mod(Value(Topic.SufixoConsulta), 4), 0, "Aberto", 1, "Fechado", 2, "Aguardando Retorno do Usuário", "Cancelado"))
+
+    # Orientação / próximo passo específico de cada status.
+    - kind: SetVariable
+      id: setVariable_orientacao_Xs5bJn
+      variable: init:Topic.OrientacaoStatus
+      value: =Switch(Topic.StatusChamado, "Aberto", "O chamado está na fila do time de suporte e será atendido dentro do prazo informado na abertura. Você não precisa fazer nada agora — avisaremos assim que houver novidade.", "Fechado", "O atendimento foi concluído e o chamado está encerrado. Se o problema voltou a acontecer, o caminho mais rápido é abrir um chamado novo citando este número.", "Aguardando Retorno do Usuário", "O time de suporte precisa de uma informação sua para continuar o atendimento. Enquanto não houver resposta, o chamado fica parado nesta etapa.", "Este chamado foi cancelado e não está mais em atendimento. Se o problema continua, posso abrir um chamado novo para você.")
+
+    # ------------------------------------------------------------------
+    # 5) Resposta principal com o status do chamado.
+    # ------------------------------------------------------------------
+    - kind: SendActivity
+      id: sendMessage_statusChamado_Dq7wVn
+      activity:
+        text:
+          - "🔎 **Status do chamado {Topic.NumeroConsulta}**<br /><br />**Número:** {Topic.NumeroConsulta}<br />**Categoria:** {Topic.CategoriaConsulta}<br />**Status:** {Topic.StatusChamado}<br /><br />{Topic.OrientacaoStatus}"
+        speak:
+          - O chamado {Topic.NumeroConsulta}, da categoria {Topic.CategoriaConsulta}, está com o status {Topic.StatusChamado}. {Topic.OrientacaoStatus}
+
+    # Se for justamente o chamado aberto nesta conversa, reaproveitamos o resumo
+    # já armazenado em vez de pedir os dados outra vez.
+    - kind: ConditionGroup
+      id: conditionGroup_resumoDaConversa_Mk8jTy
+      conditions:
+        - id: conditionItem_temResumo_Ws3rQp
+          condition: =And(Topic.NumeroConsulta = Topic.UltimoConhecido, !IsBlank(Global.UltimoChamadoResumo))
+          actions:
+            - kind: SendActivity
+              id: sendMessage_resumoChamado_Ef4gLz
+              activity:
+                text:
+                  - "Este é o chamado que você abriu nesta conversa. Os dados registrados foram:<br /><br />{Global.UltimoChamadoResumo}"
+                speak:
+                  - Este é o chamado que você abriu nesta conversa.
+
+    # ------------------------------------------------------------------
+    # 6) Próximo passo interativo, específico de cada status.
+    # ------------------------------------------------------------------
+    - kind: ConditionGroup
+      id: conditionGroup_proximoPasso_Bv6cRj
+      conditions:
+        # --- Aguardando Retorno do Usuário: pedimos a resposta agora mesmo. ---
+        - id: conditionItem_aguardandoRetorno_Th2yNs
+          condition: =Topic.StatusChamado = "Aguardando Retorno do Usuário"
+          actions:
+            - kind: Question
+              id: question_querResponder_Kp9dWf
+              alwaysPrompt: true
+              interruptionPolicy:
+                allowInterruption: false
+
+              variable: init:Topic.QuerResponder
+              prompt: O time de suporte está esperando uma resposta sua para seguir com o atendimento.<br /><br />Quer escrever essa resposta agora?
+              entity: BooleanPrebuiltEntity
+
+            - kind: ConditionGroup
+              id: conditionGroup_respostaUsuario_Cn7mZx
+              conditions:
+                - id: conditionItem_vaiResponder_Ug5tHb
+                  condition: =Topic.QuerResponder = true
+                  actions:
+                    - kind: Question
+                      id: question_respostaUsuario_Aj3vPk
+                      alwaysPrompt: true
+                      interruptionPolicy:
+                        allowInterruption: false
+
+                      variable: init:Topic.RespostaUsuario
+                      prompt: Pode escrever aqui a informação que o time de suporte pediu.<br /><br />Quanto mais detalhes você der, mais rápido o atendimento continua.
+                      entity: StringPrebuiltEntity
+                      validation: =Len(Trim(Topic.RespostaUsuario)) >= 5
+                      invalidPrompt: A resposta ficou muito curta para o time de suporte aproveitar. Escreva pelo menos uma frase completa, por favor.
+
+                    # PONTO DE INTEGRAÇÃO COM O ITSM REAL — registro do retorno:
+                    # este é o lugar de chamar a ação de atualização do chamado
+                    # (ServiceNow "Update Record", Dataverse "Update a row" ou um
+                    # HTTP PATCH), enviando Topic.NumeroConsulta e
+                    # Topic.RespostaUsuario como um novo comentário e movendo o
+                    # status de "Aguardando Retorno do Usuário" para "Aberto".
+                    # Enquanto o conector não existir, apenas confirmamos ao usuário.
+                    - kind: SendActivity
+                      id: sendMessage_respostaRegistrada_Sz8qLv
+                      activity:
+                        text:
+                          - "✅ Anotei sua resposta no chamado **{Topic.NumeroConsulta}**.<br /><br />O time de suporte volta a analisar o atendimento com essa informação. Posso ajudar em mais alguma coisa?"
+                        speak:
+                          - Anotei sua resposta no chamado {Topic.NumeroConsulta}. O time de suporte volta a analisar o atendimento com essa informação.
+
+              elseActions:
+                - kind: SendActivity
+                  id: sendMessage_responderDepois_Yd4kRt
+                  activity:
+                    text:
+                      - Tudo bem. Quando puder responder, é só me chamar dizendo "consultar chamado" e informar o número **{Topic.NumeroConsulta}**.<br /><br />Lembre-se de que o atendimento fica parado até o time receber essa informação.
+                    speak:
+                      - Tudo bem. Quando puder responder, é só me chamar novamente e informar o número do chamado. O atendimento fica parado até o time receber essa informação.
+
+        # --- Fechado: oferecemos reabertura via chamado novo. ---
+        - id: conditionItem_fechado_Wq6nFg
+          condition: =Topic.StatusChamado = "Fechado"
+          actions:
+            - kind: Question
+              id: question_reabrirFechado_Nv2sJd
+              alwaysPrompt: true
+              interruptionPolicy:
+                allowInterruption: false
+
+              variable: init:Topic.ReabrirFechado
+              prompt: O problema voltou a acontecer ou ficou algo pendente nesse chamado?<br /><br />Se sim, eu abro um chamado novo agora citando o chamado anterior.
+              entity: BooleanPrebuiltEntity
+
+            - kind: ConditionGroup
+              id: conditionGroup_reabrirFechado_Lx7bTm
+              conditions:
+                - id: conditionItem_reabrirSim_Pc4rDy
+                  condition: =Topic.ReabrirFechado = true
+                  actions:
+                    - kind: SendActivity
+                      id: sendMessage_reabrindo_Hm5wKq
+                      activity:
+                        text:
+                          - "Certo. Vou abrir um chamado novo — cite o chamado **{Topic.NumeroConsulta}** na descrição para o time ter todo o histórico."
+                        speak:
+                          - Certo. Vou abrir um chamado novo. Cite o chamado anterior na descrição para o time ter todo o histórico.
+
+                    - kind: BeginDialog
+                      id: beginDialog_abrirAposFechado_Gt8jVb
+                      dialog: new_AgentedeSuportedeTI.topic.AbrirChamado
+
+              elseActions:
+                - kind: SendActivity
+                  id: sendMessage_fechadoOk_Zr3yNc
+                  activity:
+                    text:
+                      - Perfeito, então esse chamado segue encerrado.<br /><br />Se precisar de qualquer outra coisa, é só me chamar.
+                    speak:
+                      - Perfeito, então esse chamado segue encerrado. Se precisar de qualquer outra coisa, é só me chamar.
+
+        # --- Cancelado: oferecemos abrir um chamado novo. ---
+        - id: conditionItem_cancelado_Qf9xMw
+          condition: =Topic.StatusChamado = "Cancelado"
+          actions:
+            - kind: Question
+              id: question_abrirAposCancelado_Bd6tLs
+              alwaysPrompt: true
+              interruptionPolicy:
+                allowInterruption: false
+
+              variable: init:Topic.AbrirAposCancelado
+              prompt: Como esse chamado foi cancelado, ele não está mais em atendimento.<br /><br />O problema ainda está acontecendo? Se sim, abro um chamado novo agora.
+              entity: BooleanPrebuiltEntity
+
+            - kind: ConditionGroup
+              id: conditionGroup_abrirAposCancelado_Vk2pHn
+              conditions:
+                - id: conditionItem_abrirNovoSim_Jw7cRq
+                  condition: =Topic.AbrirAposCancelado = true
+                  actions:
+                    - kind: SendActivity
+                      id: sendMessage_abrindoAposCancelado_Ty4mGx
+                      activity:
+                        text:
+                          - "Certo, vamos registrar um chamado novo. Se ajudar, cite o chamado cancelado **{Topic.NumeroConsulta}** na descrição."
+                        speak:
+                          - Certo, vamos registrar um chamado novo. Se ajudar, cite o chamado cancelado na descrição.
+
+                    - kind: BeginDialog
+                      id: beginDialog_abrirAposCancelado_Rn8dWf
+                      dialog: new_AgentedeSuportedeTI.topic.AbrirChamado
+
+              elseActions:
+                - kind: SendActivity
+                  id: sendMessage_canceladoOk_Xu5vBt
+                  activity:
+                    text:
+                      - Tudo bem, então não vou registrar nada novo.<br /><br />Se o problema voltar, é só me chamar que abro um chamado na hora.
+                    speak:
+                      - Tudo bem, então não vou registrar nada novo. Se o problema voltar, é só me chamar que abro um chamado na hora.
+
+      # --- Aberto: nada é necessário do usuário por enquanto. ---
+      elseActions:
+        - kind: SendActivity
+          id: sendMessage_abertoOk_Ks3qFj
+          activity:
+            text:
+              - Assim que o time de suporte tiver novidades, você será avisado.<br /><br />Se quiser, posso consultar outro chamado ou abrir um chamado novo. Posso ajudar em mais alguma coisa?
+            speak:
+              - Assim que o time de suporte tiver novidades, você será avisado. Se quiser, posso consultar outro chamado ou abrir um chamado novo.

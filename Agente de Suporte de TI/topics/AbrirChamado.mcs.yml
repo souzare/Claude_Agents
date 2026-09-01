@@ -1,0 +1,391 @@
+mcs.metadata:
+  componentName: Abrir chamado de TI
+  description: |-
+    Coleta a categoria (Hardware, Software ou Rede), a descrição completa do problema,
+    o equipamento afetado, o modelo, o número de série, a data de início do problema
+    e a urgência, confirma os dados com o usuário e abre o chamado,
+    retornando o número do chamado gerado.
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Abrir chamado de TI
+    triggerQueries:
+      - Abrir chamado
+      - Abrir um chamado
+      - Quero abrir um chamado
+      - Preciso de suporte
+      - Preciso de suporte de TI
+      - Meu computador não liga
+      - Estou sem internet
+      - Problema com o sistema
+      - Reportar um problema
+      - Registrar um problema de TI
+      - Solicitar suporte técnico
+      - Minha impressora não funciona
+      - Não consigo acessar o sistema
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_intro_Kd28Rp
+      activity:
+        text:
+          - Certo, vou abrir um chamado para você.<br /><br />Preciso de algumas informações rápidas para registrar o atendimento. Se não souber responder alguma delas, é só dizer que não sabe.
+        speak:
+          - Certo, vou abrir um chamado para você. Preciso de algumas informações rápidas. Se não souber responder alguma delas, é só dizer que não sabe.
+
+    # ------------------------------------------------------------------
+    # 1) Categoria do problema — lista fechada (Hardware / Software / Rede)
+    # ------------------------------------------------------------------
+    - kind: Question
+      id: question_categoria_Rq7pZv
+      alwaysPrompt: true
+      interruptionPolicy:
+        allowInterruption: false
+
+      variable: init:Topic.Categoria
+      prompt: Qual é a categoria do problema?
+      entity:
+        kind: EmbeddedEntity
+        displayName: Categoria do chamado
+        definition:
+          kind: ClosedListEntity
+          items:
+            - id: Hardware
+              displayName: Hardware
+              synonyms:
+                - computador
+                - notebook
+                - desktop
+                - impressora
+                - monitor
+                - teclado
+                - mouse
+                - equipamento
+                - celular
+                - headset
+            - id: Software
+              displayName: Software
+              synonyms:
+                - sistema
+                - aplicativo
+                - programa
+                - office
+                - excel
+                - outlook
+                - licença
+                - instalação
+                - erro no sistema
+            - id: Rede
+              displayName: Rede
+              synonyms:
+                - internet
+                - wifi
+                - wi-fi
+                - vpn
+                - conexão
+                - sem internet
+                - lentidão na rede
+                - servidor
+
+    # ------------------------------------------------------------------
+    # 2) Descrição completa do problema — texto livre com validação mínima
+    # ------------------------------------------------------------------
+    - kind: Question
+      id: question_descricao_Mz3vTn
+      alwaysPrompt: true
+      interruptionPolicy:
+        allowInterruption: false
+
+      variable: init:Topic.Descricao
+      prompt: Descreva o problema com o máximo de detalhes possível.<br /><br />Inclua o que aconteceu, quando começou e qualquer mensagem de erro que apareceu.
+      entity: StringPrebuiltEntity
+      validation: =Len(Trim(Topic.Descricao)) >= 20
+      invalidPrompt: A descrição ficou muito curta para o time de suporte entender o problema. Por favor, escreva pelo menos uma frase completa descrevendo o que está acontecendo.
+
+    # Se o usuário não conseguir informar uma descrição válida dentro das tentativas,
+    # a variável fica em branco. Preenchemos um valor padrão para não abrir um chamado vazio.
+    - kind: SetVariable
+      id: setVariable_descricaoFallback_Bv4hLs
+      variable: Topic.Descricao
+      value: =If(IsBlank(Trim(Topic.Descricao)), "(descrição não informada pelo usuário)", Trim(Topic.Descricao))
+
+    # ------------------------------------------------------------------
+    # 3) Equipamento afetado — texto livre
+    # ------------------------------------------------------------------
+    - kind: Question
+      id: question_equipamento_Jw9dTx
+      alwaysPrompt: true
+      interruptionPolicy:
+        allowInterruption: false
+
+      variable: init:Topic.Equipamento
+      prompt: Qual é o equipamento ou sistema afetado?<br /><br />Se souber, informe o nome ou a etiqueta de patrimônio (por exemplo "Notebook Dell NB-04512" ou "SAP Produção").
+      entity: StringPrebuiltEntity
+
+    - kind: SetVariable
+      id: setVariable_equipamentoFallback_Gx6mNq
+      variable: Topic.Equipamento
+      value: =If(IsBlank(Trim(Topic.Equipamento)), "(não informado)", Trim(Topic.Equipamento))
+
+    # ------------------------------------------------------------------
+    # 4) Modelo do equipamento / versão do sistema — texto livre e opcional
+    # ------------------------------------------------------------------
+    - kind: Question
+      id: question_modelo_Er4kSw
+      alwaysPrompt: true
+      interruptionPolicy:
+        allowInterruption: false
+
+      variable: init:Topic.Modelo
+      prompt: Qual é o modelo do equipamento ou a versão do sistema?<br /><br />Por exemplo "Dell Latitude 5440", "HP LaserJet M428" ou "Windows 11 23H2". Se não souber, responda "não sei".
+      entity: StringPrebuiltEntity
+
+    - kind: SetVariable
+      id: setVariable_modeloFallback_Cb8mYt
+      variable: Topic.Modelo
+      value: =If(IsBlank(Trim(Topic.Modelo)), "(não informado)", Trim(Topic.Modelo))
+
+    # ------------------------------------------------------------------
+    # 5) Número de série / patrimônio — texto livre e opcional
+    # ------------------------------------------------------------------
+    - kind: Question
+      id: question_numeroSerie_Uq3nHd
+      alwaysPrompt: true
+      interruptionPolicy:
+        allowInterruption: false
+
+      variable: init:Topic.NumeroSerie
+      prompt: Qual é o número de série ou a etiqueta de patrimônio do equipamento?<br /><br />Normalmente fica em uma etiqueta na parte de baixo ou atrás do equipamento. Se não tiver acesso agora ou se não se aplicar, responda "não sei".
+      entity: StringPrebuiltEntity
+
+    - kind: SetVariable
+      id: setVariable_numeroSerieFallback_Kw7rPz
+      variable: Topic.NumeroSerie
+      value: =If(IsBlank(Trim(Topic.NumeroSerie)), "(não informado)", Trim(Topic.NumeroSerie))
+
+    # ------------------------------------------------------------------
+    # 6) Data de início do problema — data reconhecida pelo agente.
+    #    Perguntada SEMPRE, em todos os chamados, independentemente da categoria.
+    # ------------------------------------------------------------------
+    - kind: Question
+      id: question_dataInicio_Gm5vTb
+      alwaysPrompt: true
+      interruptionPolicy:
+        allowInterruption: false
+
+      variable: init:Topic.DataInicioProblema
+      prompt: Desde quando o problema está acontecendo?<br /><br />Você pode informar uma data (por exemplo 28/08/2026) ou algo como "hoje", "ontem" ou "na semana passada".
+      entity: DatePrebuiltEntity
+      unrecognizedPrompt: Não consegui entender essa data. Tente informar no formato dia/mês/ano (por exemplo 28/08/2026) ou dizer algo como "hoje", "ontem" ou "na semana passada".
+
+    # Topic.DataInicioProblema é do tipo Data; se a pergunta não for respondida
+    # ela fica em branco. Guardamos uma versão em texto para usar no resumo e no
+    # registro do chamado sem risco de conflito de tipo.
+    - kind: SetVariable
+      id: setVariable_dataInicioTexto_Nj2xQf
+      variable: init:Topic.DataInicioTexto
+      value: =If(IsBlank(Topic.DataInicioProblema), "(não informada)", Text(Topic.DataInicioProblema, DateTimeFormat.ShortDate))
+
+    # ------------------------------------------------------------------
+    # 7) Urgência — lista fechada (Baixa / Média / Alta / Crítica)
+    # ------------------------------------------------------------------
+    - kind: Question
+      id: question_urgencia_Ht5kWb
+      alwaysPrompt: true
+      interruptionPolicy:
+        allowInterruption: false
+
+      variable: init:Topic.Urgencia
+      prompt: Qual é a urgência deste chamado?
+      entity:
+        kind: EmbeddedEntity
+        displayName: Urgência do chamado
+        definition:
+          kind: ClosedListEntity
+          items:
+            - id: Baixa
+              displayName: Baixa
+              synonyms:
+                - sem pressa
+                - pode esperar
+                - não urgente
+                - sem prioridade
+            - id: Média
+              displayName: Média
+              synonyms:
+                - normal
+                - moderada
+                - leve
+                - com calma
+            - id: Alta
+              displayName: Alta
+              synonyms:
+                - prioridade alta
+                - necessito rápido
+                - urgente
+                - resposta rápida
+            - id: Crítica
+              displayName: Crítica
+              synonyms:
+                - critica
+                - parado
+                - parada total
+                - emergência
+                - sem acesso
+                - não consigo trabalhar
+
+    # Prazo esperado de retorno, derivado da urgência informada.
+    - kind: SetVariable
+      id: setVariable_prazo_Ln8yCf
+      variable: init:Topic.PrazoRetorno
+      value: =If(Text(Topic.Urgencia) = "Crítica", "atendimento imediato, com retorno em até 1 hora", If(Text(Topic.Urgencia) = "Alta", "retorno em até 4 horas úteis", If(Text(Topic.Urgencia) = "Média", "retorno em até 1 dia útil", "retorno em até 3 dias úteis")))
+
+    # ------------------------------------------------------------------
+    # 8) Resumo e confirmação antes de abrir o chamado
+    # ------------------------------------------------------------------
+    - kind: SendActivity
+      id: sendMessage_resumo_Pv2sQd
+      activity:
+        text:
+          - "**Confira os dados do chamado antes de eu registrar:**<br /><br />**Categoria:** {Topic.Categoria}<br />**Equipamento afetado:** {Topic.Equipamento}<br />**Modelo:** {Topic.Modelo}<br />**Número de série:** {Topic.NumeroSerie}<br />**Problema começou em:** {Topic.DataInicioTexto}<br />**Urgência:** {Topic.Urgencia}<br />**Descrição:** {Topic.Descricao}"
+        speak:
+          - Confira os dados do chamado. Categoria {Topic.Categoria}, equipamento {Topic.Equipamento}, modelo {Topic.Modelo}, número de série {Topic.NumeroSerie}, problema iniciado em {Topic.DataInicioTexto}, urgência {Topic.Urgencia}.
+
+    - kind: Question
+      id: question_confirmar_Za7bXm
+      alwaysPrompt: true
+      interruptionPolicy:
+        allowInterruption: false
+
+      variable: init:Topic.Confirmar
+      prompt: Posso abrir o chamado com essas informações?
+      entity: BooleanPrebuiltEntity
+
+    - kind: ConditionGroup
+      id: conditionGroup_confirmacao_Ue3jRk
+      conditions:
+        - id: conditionItem_confirmado_Cw9nFt
+          condition: =Topic.Confirmar = true
+          actions:
+            # ==================================================================
+            # PONTO DE INTEGRAÇÃO COM O ITSM REAL
+            # ------------------------------------------------------------------
+            # Hoje NÃO existe conector/backend configurado neste agente
+            # (GenerativeActionsEnabled = false e a pasta actions/ está vazia),
+            # portanto o número do chamado é gerado LOCALMENTE com Power Fx.
+            #
+            # QUANDO O CONECTOR ESTIVER DISPONÍVEL, substitua os quatro nós
+            # SetVariable abaixo (setVariable_prefixo_* até setVariable_numero_*)
+            # por uma chamada real ao sistema de ITSM:
+            #
+            #   1. Crie a ação com a skill /copilot-studio:add-action
+            #      (ServiceNow "Create Record", Dataverse "Add a new row" ou
+            #       um HTTP request para a API do ITSM).
+            #   2. Registre a conexão em connectionreferences.mcs.yml.
+            #   3. Chame a ação aqui com um nó BeginDialog, passando como entradas:
+            #        Topic.Categoria, Topic.Descricao, Topic.Equipamento, Topic.Modelo,
+            #        Topic.NumeroSerie, Topic.DataInicioProblema (ou Topic.DataInicioTexto)
+            #        e Topic.Urgencia
+            #   4. Grave a saída da ação (o número real do chamado) em
+            #      Topic.NumeroChamado — o restante do fluxo abaixo continua igual.
+            #
+            #   Exemplo do nó que substituirá os SetVariable:
+            #     - kind: BeginDialog
+            #       id: beginDialog_criarChamadoItsm
+            #       dialog: new_AgentedeSuportedeTI.action.CriarChamadoITSM
+            #       input:
+            #         binding:
+            #           categoria: =Topic.Categoria
+            #           descricao: =Topic.Descricao
+            #           equipamento: =Topic.Equipamento
+            #           modelo: =Topic.Modelo
+            #           numeroSerie: =Topic.NumeroSerie
+            #           dataInicio: =Topic.DataInicioProblema
+            #           urgencia: =Topic.Urgencia
+            #       output:
+            #         binding:
+            #           Topic.NumeroChamado: numeroChamado
+            # ==================================================================
+
+            # Prefixo do número do chamado conforme a categoria.
+            - kind: SetVariable
+              id: setVariable_prefixo_Wq8xLb
+              variable: init:Topic.PrefixoChamado
+              value: =If(Text(Topic.Categoria) = "Hardware", "HW", If(Text(Topic.Categoria) = "Software", "SW", If(Text(Topic.Categoria) = "Rede", "NET", "TI")))
+
+            # Data no formato ddmmaaaa. Usamos Substitute para remover os separadores
+            # da data curta, evitando depender de um formato customizado dependente de idioma.
+            - kind: SetVariable
+              id: setVariable_data_Hn5cJp
+              variable: init:Topic.DataChamado
+              value: =Substitute(Substitute(Text(Now(), DateTimeFormat.ShortDate), "/", ""), "-", "")
+
+            # Sufixo aleatório de 4 dígitos. Substitute remove um eventual separador
+            # de milhar inserido pela formatação em pt-BR (ex.: "4.821" vira "4821").
+            - kind: SetVariable
+              id: setVariable_sufixo_Tf2wGe
+              variable: init:Topic.SufixoChamado
+              value: =Substitute(Substitute(Text(RandBetween(1000, 9999)), ".", ""), ",", "")
+
+            # Número final, no formato PREFIXO-DDMMAAAA-NNNN (ex.: HW-01092026-4821).
+            - kind: SetVariable
+              id: setVariable_numero_Yb6nKa
+              variable: init:Topic.NumeroChamado
+              value: =Topic.PrefixoChamado & "-" & Topic.DataChamado & "-" & Topic.SufixoChamado
+
+            # Retém os dados do chamado para o restante da conversa.
+            # Precisam ser variáveis GLOBAIS (declaradas em variables/) e não de
+            # tópico: variáveis de tópico são descartadas quando este tópico termina,
+            # e o tópico "Consultar chamado" precisa ler esses valores depois.
+            - kind: SetVariable
+              id: setVariable_globalNumero_Ds4qVu
+              variable: Global.UltimoChamadoNumero
+              value: =Topic.NumeroChamado
+
+            - kind: SetVariable
+              id: setVariable_globalResumo_Pl9tRc
+              variable: Global.UltimoChamadoResumo
+              value: '="Categoria: " & Topic.Categoria & " | Urgência: " & Topic.Urgencia & " | Equipamento: " & Topic.Equipamento & " | Modelo: " & Topic.Modelo & " | Número de série: " & Topic.NumeroSerie & " | Início do problema: " & Topic.DataInicioTexto & " | Descrição: " & Topic.Descricao'
+
+            - kind: SendActivity
+              id: sendMessage_chamadoAberto_Ao4gHy
+              activity:
+                text:
+                  - "✅ **Chamado aberto com sucesso!**<br /><br />**Número do chamado: {Topic.NumeroChamado}**<br /><br />**Categoria:** {Topic.Categoria}<br />**Urgência:** {Topic.Urgencia}<br />**Prazo:** {Topic.PrazoRetorno}<br /><br />Guarde o número do chamado para acompanhar o atendimento. Posso ajudar em mais alguma coisa?"
+                speak:
+                  - Chamado aberto com sucesso. O número do seu chamado é {Topic.NumeroChamado}. A urgência é {Topic.Urgencia}, com {Topic.PrazoRetorno}.
+
+      elseActions:
+        - kind: Question
+          id: question_corrigir_Nk6zVp
+          alwaysPrompt: true
+          interruptionPolicy:
+            allowInterruption: false
+
+          variable: init:Topic.Corrigir
+          prompt: Sem problema, não registrei nada.<br /><br />Quer recomeçar o preenchimento para corrigir as informações?
+          entity: BooleanPrebuiltEntity
+
+        - kind: ConditionGroup
+          id: conditionGroup_corrigir_Ry8wMc
+          conditions:
+            - id: conditionItem_recomecar_Qs5tBn
+              condition: =Topic.Corrigir = true
+              actions:
+                - kind: SendActivity
+                  id: sendMessage_recomecar_Vd3xKu
+                  activity: Certo, vamos começar de novo.
+
+                - kind: ReplaceDialog
+                  id: replaceDialog_reiniciar_Fm7cLw
+                  dialog: new_AgentedeSuportedeTI.topic.AbrirChamado
+
+          elseActions:
+            - kind: SendActivity
+              id: sendMessage_cancelado_Xj2pDa
+              activity: Tudo bem, o chamado não foi aberto e nenhuma informação foi registrada.<br /><br />Se precisar, é só me chamar novamente para abrir um chamado.
+
+            - kind: EndDialog
+              id: endDialog_cancelado_Zt9bGr

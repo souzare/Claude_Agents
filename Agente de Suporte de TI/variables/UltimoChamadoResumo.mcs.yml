@@ -1,0 +1,15 @@
+# Name: Último chamado — resumo
+# Resumo dos dados do último chamado aberto pelo usuário nesta conversa.
+name: UltimoChamadoResumo
+aIVisibility: UseInAIContext
+scope: Conversation
+description: >-
+  Resumo em texto do último chamado aberto nesta conversa (categoria, urgência,
+  equipamento, modelo, número de série, início do problema e descrição).
+  Preenchido pelo tópico "Abrir chamado de TI" e reaproveitado pelo tópico
+  "Consultar chamado" quando o usuário consulta justamente o chamado que acabou
+  de abrir, evitando repetir as perguntas.
+schemaName: new_AgentedeSuportedeTI.globalvariable.UltimoChamadoResumo
+kind: GlobalVariableComponent
+# Sem defaultValue de propósito: a variável precisa começar EM BRANCO para que
+# o teste =IsBlank(Global.UltimoChamadoResumo) no tópico de consulta funcione.
